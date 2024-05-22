@@ -6,34 +6,43 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 
 import pandas as pd
-from src.data_processing import load_data, preprocess_data
+from src.data_processing import load_data, preprocess_data, split_data
 from src.feature_engineering import feature_engineering
-from src.model import train_random_forest
+from src.model import train_random_forest, train_linear_regression, evaluate_model
 
-# load data
+# Load data
 train_data = load_data('data/raw/train.csv')
 test_data = load_data('data/raw/test.csv')
 
-# preprocess data
-train_data_processed, test_data_processed = preprocess_data(train_data, test_data)
+# Preprocess data
+train_data = feature_engineering(train_data)
+test_data = feature_engineering(test_data)
 
-# feature engineering
-train_data_processed = feature_engineering(train_data_processed)
-test_data_processed = feature_engineering(test_data_processed)
+X_train, y_train, X_test = preprocess_data(train_data, test_data)
 
-# prepare features for training
-X_train = train_data_processed.drop('SalePrice', axis=1)
-y_train = train_data_processed['SalePrice']
+# Split data
+X_train, X_val, y_train, y_val = split_data(X_train, y_train)
 
-# train model
-model = train_random_forest(X_train, y_train)
+# Train models
+rf_model = train_random_forest(X_train, y_train)
+lr_model = train_linear_regression(X_train, y_train)
 
-# make predictions
-test_predictions = model.predict(test_data_processed.drop('SalePrice', axis=1))  # Exclude 'SalePrice' column
+# Evaluate models
+rf_rmse = evaluate_model(rf_model, X_val, y_val)
+lr_rmse = evaluate_model(lr_model, X_val, y_val)
 
-# create submission file
+print(f'Random Forest RMSE: {rf_rmse}')
+print(f'Linear Regression RMSE: {lr_rmse}')
+
+# Choose the best model for submission
+best_model = rf_model if rf_rmse < lr_rmse else lr_model
+
+# Make predictions
+test_predictions = best_model.predict(X_test)
+
+# Create submission file
 submission = pd.DataFrame({
-    'Id': test_data_processed['Id'].astype(int),
+    'Id': test_data['Id'],
     'SalePrice': test_predictions
 })
 
